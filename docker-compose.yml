@@ -1,0 +1,22 @@
+version: "3.8"
+
+# PostgreSQL for production-like local development.
+# 1. docker compose up -d
+# 2. In prisma/schema.prisma set provider = "postgresql"
+# 3. In .env.local set DATABASE_URL="postgresql://ostati:ostati@localhost:5432/ostati"
+# 4. npm run setup
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ostati
+      POSTGRES_PASSWORD: ostati
+      POSTGRES_DB: ostati
+    ports:
+      - "5432:5432"
+    volumes:
+      - ostati_pgdata:/var/lib/postgresql/data
+
+volumes:
+  ostati_pgdata:

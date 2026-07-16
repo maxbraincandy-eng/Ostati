@@ -1,0 +1,158 @@
+// Ostati — data model.
+// Dev default is SQLite for zero-setup runs; for production switch
+// provider to "postgresql" and point DATABASE_URL at Postgres
+// (docker-compose.yml ships one). SQLite lacks enums, so status/role
+// fields are strings validated by constants in src/lib/constants.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String?
+  image        String?
+  role         String   @default("CUSTOMER") // CUSTOMER | MASTER | ADMIN
+  createdAt    DateTime @default(now())
+
+  masterProfile MasterProfile?
+  bookings      Booking[]      @relation("CustomerBookings")
+  reviews       Review[]
+  favorites     Favorite[]
+  messages      Message[]
+  notifications Notification[]
+}
+
+model MasterProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category        String
+  bio             String   @default("")
+  city            String
+  experienceYears Int      @default(0)
+  priceFrom       Int      @default(0)
+  priceTo         Int      @default(0)
+  workHours       String   @default("ორშ–შაბ 09:00–19:00")
+  verified        Boolean  @default(false)
+  premium         Boolean  @default(false)
+  ratingAvg       Float    @default(0)
+  reviewCount     Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  portfolio PortfolioItem[]
+  bookings  Booking[]       @relation("MasterBookings")
+  offers    Offer[]
+  reviews   Review[]
+  favorites Favorite[]
+
+  @@index([category, city])
+}
+
+model PortfolioItem {
+  id          String        @id @default(cuid())
+  masterId    String
+  master      MasterProfile @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  title       String
+  description String        @default("")
+  imageHue    Int           @default(210) // placeholder art hue until real uploads land
+  createdAt   DateTime      @default(now())
+}
+
+model Booking {
+  id            String         @id @default(cuid())
+  customerId    String
+  customer      User           @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Cascade)
+  masterId      String? // null = open request, any master in category may offer
+  master        MasterProfile? @relation("MasterBookings", fields: [masterId], references: [id])
+  category      String
+  description   String
+  address       String
+  city          String
+  preferredDate String
+  photos        String         @default("[]") // JSON array of data-URLs / URLs
+  status        String         @default("PENDING") // PENDING | ACCEPTED | IN_PROGRESS | COMPLETED | CANCELLED
+  price         Int?
+  createdAt     DateTime       @default(now())
+
+  offers   Offer[]
+  review   Review?
+  messages Message[]
+
+  @@index([customerId])
+  @@index([masterId])
+  @@index([category, status])
+}
+
+model Offer {
+  id        String        @id @default(cuid())
+  bookingId String
+  booking   Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  masterId  String
+  master    MasterProfile @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  price     Int
+  message   String        @default("")
+  status    String        @default("PENDING") // PENDING | ACCEPTED | DECLINED
+  createdAt DateTime      @default(now())
+
+  @@unique([bookingId, masterId])
+}
+
+model Review {
+  id         String        @id @default(cuid())
+  bookingId  String        @unique
+  booking    Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   User          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  masterId   String
+  master     MasterProfile @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  rating     Int
+  comment    String        @default("")
+  createdAt  DateTime      @default(now())
+
+  @@index([masterId])
+}
+
+model Favorite {
+  id         String        @id @default(cuid())
+  customerId String
+  customer   User          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  masterId   String
+  master     MasterProfile @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+
+  @@unique([customerId, masterId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([bookingId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String   @default("")
+  href      String   @default("")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}

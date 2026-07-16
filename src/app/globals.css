@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-ink text-white antialiased;
+  background-image: radial-gradient(
+      1200px 600px at 80% -10%,
+      rgba(212, 169, 79, 0.07),
+      transparent 60%
+    ),
+    radial-gradient(900px 500px at -10% 20%, rgba(59, 92, 146, 0.08), transparent 55%);
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-graphite-border bg-graphite-card shadow-card;
+  }
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gold px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-gold-light disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-graphite-border bg-transparent px-5 py-2.5 text-sm font-semibold text-white transition hover:border-gold/60 hover:text-gold-light disabled:opacity-50;
+  }
+  .input {
+    @apply w-full rounded-xl border border-graphite-border bg-graphite px-4 py-2.5 text-sm text-white placeholder-muted outline-none transition focus:border-gold/70;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted;
+  }
+  .gold-text {
+    background: linear-gradient(120deg, #e8c87c, #d4a94f 45%, #a87f2e);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
