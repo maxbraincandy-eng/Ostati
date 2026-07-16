@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# local env with secrets (defaults live in .env)
+.env.local
+.env*.local
+
+# database
+prisma/*.db
+prisma/*.db-journal
+
+.DS_Store
