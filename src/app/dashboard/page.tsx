@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import StatusBadge from "@/components/StatusBadge";
+import CommissionCard from "./CommissionCard";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { categoryIcon, categoryName, PLATFORM_COMMISSION } from "@/lib/constants";
@@ -17,7 +18,7 @@ export default async function DashboardPage() {
   const profile = await prisma.masterProfile.findUnique({ where: { id: masterId } });
   if (!profile) redirect("/profile");
 
-  const [openRequests, myBookings, myOffers] = await Promise.all([
+  const [openRequests, myBookings, myOffers, commissionDue] = await Promise.all([
     // Open requests in my category + direct requests to me, still pending
     prisma.booking.findMany({
       where: {
@@ -33,6 +34,10 @@ export default async function DashboardPage() {
       include: { customer: { select: { name: true } } },
     }),
     prisma.offer.findMany({ where: { masterId }, select: { bookingId: true } }),
+    prisma.commission.aggregate({
+      where: { masterId, status: "PENDING" },
+      _sum: { amount: true },
+    }),
   ]);
 
   const offeredIds = new Set(myOffers.map((o) => o.bookingId));
@@ -88,6 +93,8 @@ export default async function DashboardPage() {
           სრული ბრუნვა {gross}₾ · Ostati საკომისიო ({Math.round(PLATFORM_COMMISSION * 100)}%): {commission}₾
         </p>
       )}
+
+      <CommissionCard due={commissionDue._sum.amount ?? 0} />
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
         {/* New requests */}

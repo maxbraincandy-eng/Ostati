@@ -10,6 +10,13 @@ export const metadata: Metadata = {
   },
   description:
     "პრემიუმ ხელოსნების Marketplace საქართველოსთვის. პროფესიონალი ხელოსნები, შემოწმებული პროფილებით და რეალური შეფასებებით.",
+  manifest: "/manifest.webmanifest",
+  icons: { icon: "/icon.svg" },
+  appleWebApp: { capable: true, title: "Ostati", statusBarStyle: "black-translucent" },
+};
+
+export const viewport = {
+  themeColor: "#0B0D10",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

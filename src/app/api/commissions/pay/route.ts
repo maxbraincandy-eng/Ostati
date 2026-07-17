@@ -1,34 +1,29 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { PREMIUM_PLANS } from "@/lib/premium";
 import { bogCreateOrder, bogEnabled, fulfillPayment } from "@/lib/billing";
 
-const schema = z.object({ plan: z.enum(["BASIC", "STANDARD", "PRO"]) });
-
-/**
- * Premium checkout.
- * - With BOG merchant credentials: creates a pending payment + bank order
- *   and returns the hosted payment page URL; fulfillment happens in the
- *   /api/payments/callback webhook.
- * - Without credentials (demo): fulfills immediately.
- */
-export async function POST(req: Request) {
+/** Master pays their outstanding platform commission balance in one checkout. */
+export async function POST() {
   const user = await requireUser();
   if (!user?.masterId) return NextResponse.json({ error: "მხოლოდ ოსტატებისთვის" }, { status: 403 });
 
-  const parsed = schema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "აირჩიე პაკეტი" }, { status: 400 });
-
-  const plan = PREMIUM_PLANS.find((p) => p.id === parsed.data.plan)!;
+  const pending = await prisma.commission.aggregate({
+    where: { masterId: user.masterId, status: "PENDING" },
+    _sum: { amount: true },
+  });
+  const total = pending._sum.amount ?? 0;
+  if (total <= 0) {
+    return NextResponse.json({ error: "გადასახდელი საკომისიო არ გაქვს" }, { status: 400 });
+  }
 
   const payment = await prisma.payment.create({
     data: {
       masterId: user.masterId,
-      amount: plan.price,
-      plan: plan.id,
-      months: plan.months,
+      amount: total,
+      plan: "",
+      months: 0,
+      kind: "COMMISSION",
       status: "PENDING",
       provider: bogEnabled() ? "BOG" : "DEMO",
     },
@@ -42,13 +37,14 @@ export async function POST(req: Request) {
   try {
     const redirect = await bogCreateOrder({
       paymentId: payment.id,
-      productId: `premium-${plan.id.toLowerCase()}`,
-      description: `Ostati Premium — ${plan.name}`,
-      amount: plan.price,
+      productId: "commission",
+      description: "Ostati — პლატფორმის საკომისიო",
+      amount: total,
+      returnPath: "/dashboard",
     });
     return NextResponse.json({ redirect });
   } catch (err) {
-    console.error("BOG checkout error:", err);
+    console.error("BOG commission checkout error:", err);
     await prisma.payment.update({ where: { id: payment.id }, data: { status: "FAILED" } });
     return NextResponse.json(
       { error: "გადახდის ინიციალიზაცია ვერ მოხერხდა — სცადე მოგვიანებით" },

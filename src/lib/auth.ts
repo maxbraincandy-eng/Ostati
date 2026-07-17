@@ -3,9 +3,11 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { normalizePhone, verifyOtp } from "@/lib/otp";
 
 const providers: NextAuthOptions["providers"] = [
   CredentialsProvider({
+    id: "credentials",
     name: "Email",
     credentials: {
       email: { label: "Email", type: "email" },
@@ -19,6 +21,28 @@ const providers: NextAuthOptions["providers"] = [
       if (!user?.passwordHash) return null;
       const valid = await compare(credentials.password, user.passwordHash);
       if (!valid) return null;
+      return { id: user.id, name: user.name, email: user.email, image: user.image };
+    },
+  }),
+  CredentialsProvider({
+    id: "phone-otp",
+    name: "Phone",
+    credentials: {
+      phone: { label: "Phone", type: "tel" },
+      code: { label: "Code", type: "text" },
+    },
+    async authorize(credentials) {
+      if (!credentials?.phone || !credentials.code) return null;
+      const phone = normalizePhone(credentials.phone);
+      const valid = await verifyOtp(phone, credentials.code.trim());
+      if (!valid) return null;
+      // Sign in the existing owner of this number, or create a customer account.
+      let user = await prisma.user.findFirst({ where: { phone } });
+      if (!user) {
+        user = await prisma.user.create({
+          data: { name: "მომხმარებელი", phone, role: "CUSTOMER" },
+        });
+      }
       return { id: user.id, name: user.name, email: user.email, image: user.image };
     },
   }),
@@ -53,17 +77,19 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token }) {
-      if (token.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: token.email.toLowerCase() },
-          select: { id: true, role: true, masterProfile: { select: { id: true } } },
-        });
-        if (dbUser) {
-          token.uid = dbUser.id;
-          token.role = dbUser.role;
-          token.masterId = dbUser.masterProfile?.id ?? null;
-        }
+    async jwt({ token, user }) {
+      // Phone-only accounts have no email — resolve those by user id instead.
+      const select = { id: true, role: true, masterProfile: { select: { id: true } } };
+      const id = (user?.id as string | undefined) ?? (token.uid as string | undefined);
+      const dbUser = token.email
+        ? await prisma.user.findUnique({ where: { email: token.email.toLowerCase() }, select })
+        : id
+          ? await prisma.user.findUnique({ where: { id }, select })
+          : null;
+      if (dbUser) {
+        token.uid = dbUser.id;
+        token.role = dbUser.role;
+        token.masterId = dbUser.masterProfile?.id ?? null;
       }
       return token;
     },

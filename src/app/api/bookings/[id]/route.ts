@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { notify } from "@/lib/notify";
-import { STATUS_LABELS } from "@/lib/constants";
+import { PLATFORM_COMMISSION, STATUS_LABELS } from "@/lib/constants";
 
 // Allowed status transitions per actor.
 const MASTER_TRANSITIONS: Record<string, string[]> = {
@@ -45,6 +45,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 
   await prisma.booking.update({ where: { id: booking.id }, data: { status } });
+
+  // A completed paid job accrues the platform commission for the master.
+  if (status === "COMPLETED" && booking.masterId && booking.price) {
+    const amount = Math.max(1, Math.round(booking.price * PLATFORM_COMMISSION));
+    await prisma.commission.upsert({
+      where: { bookingId: booking.id },
+      update: {},
+      create: { bookingId: booking.id, masterId: booking.masterId, amount },
+    });
+  }
 
   const counterpartId = isMaster ? booking.customerId : booking.master?.userId;
   if (counterpartId) {

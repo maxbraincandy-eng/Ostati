@@ -15,7 +15,7 @@ datasource db {
 model User {
   id           String   @id @default(cuid())
   name         String
-  email        String   @unique
+  email        String?  @unique // null for phone-only accounts
   phone        String?
   passwordHash String?
   image        String?
@@ -56,6 +56,7 @@ model MasterProfile {
   favorites    Favorite[]
   verification VerificationRequest?
   payments     Payment[]
+  commissions  Commission[]
 
   @@index([category, city])
 }
@@ -105,12 +106,37 @@ model Payment {
   amount          Int // GEL
   plan            String // BASIC | STANDARD | PRO
   months          Int           @default(1)
+  kind            String        @default("PREMIUM") // PREMIUM | COMMISSION
   status          String        @default("PAID") // PENDING | PAID | FAILED
   provider        String        @default("DEMO") // DEMO | BOG
   providerOrderId String        @default("")
   createdAt       DateTime      @default(now())
 
   @@index([providerOrderId])
+}
+
+model Commission {
+  id        String        @id @default(cuid())
+  bookingId String        @unique
+  booking   Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  masterId  String
+  master    MasterProfile @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  amount    Int // GEL
+  status    String        @default("PENDING") // PENDING | PAID
+  createdAt DateTime      @default(now())
+
+  @@index([masterId, status])
+}
+
+model PhoneOtp {
+  id        String   @id @default(cuid())
+  phone     String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
 }
 
 model Booking {
@@ -133,6 +159,7 @@ model Booking {
   review     Review?
   messages   Message[]
   complaints Complaint[]
+  commission Commission?
 
   @@index([customerId])
   @@index([masterId])

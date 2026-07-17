@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notify } from "@/lib/notify";
-import { PREMIUM_PLANS, type PremiumPlanId } from "@/lib/premium";
+import { PREMIUM_PLANS } from "@/lib/premium";
 
 /** Real payments switch on when Bank of Georgia merchant credentials are set. */
 export function bogEnabled() {
@@ -11,13 +11,34 @@ export function appUrl() {
   return (process.env.NEXTAUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
 }
 
-/** Marks a payment PAID and extends the master's premium period. Idempotent. */
+/** Marks a payment PAID and applies its effect (premium or commissions). Idempotent. */
 export async function fulfillPayment(paymentId: string) {
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
     include: { master: { select: { id: true, userId: true, premiumUntil: true } } },
   });
   if (!payment || payment.status === "PAID") return payment;
+
+  if (payment.kind === "COMMISSION") {
+    await prisma.$transaction([
+      prisma.payment.update({ where: { id: payment.id }, data: { status: "PAID" } }),
+      prisma.commission.updateMany({
+        where: {
+          masterId: payment.master.id,
+          status: "PENDING",
+          createdAt: { lte: payment.createdAt },
+        },
+        data: { status: "PAID" },
+      }),
+    ]);
+    await notify(
+      payment.master.userId,
+      "საკომისიო გადახდილია ✓",
+      `${payment.amount}₾ — მადლობა!`,
+      "/dashboard"
+    );
+    return payment;
+  }
 
   const base =
     payment.master.premiumUntil && payment.master.premiumUntil > new Date()
@@ -70,8 +91,10 @@ async function bogToken(): Promise<string> {
 /** Creates a BOG hosted-checkout order; returns the URL to redirect the payer to. */
 export async function bogCreateOrder(opts: {
   paymentId: string;
-  planId: PremiumPlanId;
+  productId: string;
+  description: string;
   amount: number;
+  returnPath?: string;
 }): Promise<string> {
   const token = await bogToken();
   const res = await fetch(`${BOG_API_URL}/ecommerce/orders`, {
@@ -90,16 +113,16 @@ export async function bogCreateOrder(opts: {
         total_amount: opts.amount,
         basket: [
           {
-            product_id: `premium-${opts.planId.toLowerCase()}`,
-            description: `Ostati Premium — ${opts.planId}`,
+            product_id: opts.productId,
+            description: opts.description,
             quantity: 1,
             unit_price: opts.amount,
           },
         ],
       },
       redirect_urls: {
-        success: `${appUrl()}/dashboard/premium?payment=success`,
-        fail: `${appUrl()}/dashboard/premium?payment=fail`,
+        success: `${appUrl()}${opts.returnPath ?? "/dashboard/premium"}?payment=success`,
+        fail: `${appUrl()}${opts.returnPath ?? "/dashboard/premium"}?payment=fail`,
       },
     }),
     cache: "no-store",
