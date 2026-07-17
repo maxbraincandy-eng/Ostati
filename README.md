@@ -22,16 +22,17 @@
 |---|---|
 | Frontend | Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS |
 | Backend | Next.js API Routes (Node.js), Zod ვალიდაცია |
-| Database | Prisma ORM — SQLite (dev) / PostgreSQL (production) |
+| Database | Prisma ORM + PostgreSQL |
 | Auth | NextAuth.js — Credentials + Google, JWT სესიები |
 | AI | Anthropic Claude API (არასავალდებულო) + built-in fallback |
 
-## 🚀 გაშვება
+## 🚀 გაშვება (ლოკალურად)
 
 ```bash
-npm install        # დამოკიდებულებები + prisma generate
-npm run setup      # ბაზის შექმნა (SQLite) + demo მონაცემები
-npm run dev        # http://localhost:3000
+docker compose up -d   # PostgreSQL
+npm install            # დამოკიდებულებები + prisma generate
+npm run setup          # ბაზის სქემა + demo მონაცემები
+npm run dev            # http://localhost:3000
 ```
 
 ### დემო ანგარიშები (პაროლი ყველგან: `ostati123`)
@@ -42,12 +43,16 @@ npm run dev        # http://localhost:3000
 | ოსტატი | `master@ostati.ge` |
 | ადმინი | `admin@ostati.ge` |
 
-### PostgreSQL-ზე გადასვლა (production)
+### ☁️ Railway-ზე დეპლოი
 
-1. `docker compose up -d` (ან ნებისმიერი Postgres)
-2. `prisma/schema.prisma`-ში: `provider = "postgresql"`
-3. `.env.local`-ში: `DATABASE_URL="postgresql://ostati:ostati@localhost:5432/ostati"`
-4. `npm run setup`
+1. Railway პროექტში დაამატე ეს GitHub რეპო (branch: `main`) და PostgreSQL სერვისი
+2. აპის სერვისზე → **Variables** დააყენე:
+   - `DATABASE_URL` → Postgres სერვისის reference (`${{Postgres.DATABASE_URL}}`)
+   - `NEXTAUTH_SECRET` → ძლიერი შემთხვევითი სტრიქონი (`openssl rand -base64 32`)
+   - `NEXTAUTH_URL` → შენი საჯარო დომენი, მაგ. `https://ostati.up.railway.app`
+3. Deploy — `npm start` თავად შექმნის ბაზის სქემას (`prisma db push`) და ჩატვირთავს demo მონაცემებს
+
+> Vercel-ზე დეპლოისას Build Command: `prisma generate && prisma db push && next build` და იგივე env ცვლადები.
 
 ### Environment ცვლადები
 

@@ -1,15 +1,14 @@
 // Ostati — data model.
-// Dev default is SQLite for zero-setup runs; for production switch
-// provider to "postgresql" and point DATABASE_URL at Postgres
-// (docker-compose.yml ships one). SQLite lacks enums, so status/role
-// fields are strings validated by constants in src/lib/constants.ts.
+// PostgreSQL by default (docker-compose.yml ships one for local dev).
+// Status/role fields are strings validated by constants in
+// src/lib/constants.ts so the schema stays portable across databases.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
