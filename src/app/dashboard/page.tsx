@@ -58,9 +58,20 @@ export default async function DashboardPage() {
             {profile.verified && <span className="ml-2 text-gold-light">✓ ვერიფიცირებული</span>}
           </p>
         </div>
-        <Link href={`/masters/${masterId}`} className="btn-ghost">
-          ჩემი საჯარო პროფილი
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/dashboard/settings" className="btn-ghost !px-4">
+            ⚙️ რედაქტირება
+          </Link>
+          <Link href="/dashboard/verification" className="btn-ghost !px-4">
+            ✓ ვერიფიკაცია
+          </Link>
+          <Link href="/dashboard/premium" className="btn-gold !px-4">
+            ⭐ Premium
+          </Link>
+          <Link href={`/masters/${masterId}`} className="btn-ghost !px-4">
+            საჯარო პროფილი
+          </Link>
+        </div>
       </div>
 
       {/* Stats */}

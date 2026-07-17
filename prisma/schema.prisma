@@ -28,6 +28,7 @@ model User {
   favorites     Favorite[]
   messages      Message[]
   notifications Notification[]
+  complaints    Complaint[]
 }
 
 model MasterProfile {
@@ -43,15 +44,18 @@ model MasterProfile {
   workHours       String   @default("ორშ–შაბ 09:00–19:00")
   verified        Boolean  @default(false)
   premium         Boolean  @default(false)
+  premiumUntil    DateTime?
   ratingAvg       Float    @default(0)
   reviewCount     Int      @default(0)
   createdAt       DateTime @default(now())
 
-  portfolio PortfolioItem[]
-  bookings  Booking[]       @relation("MasterBookings")
-  offers    Offer[]
-  reviews   Review[]
-  favorites Favorite[]
+  portfolio    PortfolioItem[]
+  bookings     Booking[]       @relation("MasterBookings")
+  offers       Offer[]
+  reviews      Review[]
+  favorites    Favorite[]
+  verification VerificationRequest?
+  payments     Payment[]
 
   @@index([category, city])
 }
@@ -62,8 +66,46 @@ model PortfolioItem {
   master      MasterProfile @relation(fields: [masterId], references: [id], onDelete: Cascade)
   title       String
   description String        @default("")
-  imageHue    Int           @default(210) // placeholder art hue until real uploads land
+  imageHue    Int           @default(210) // gradient fallback when no photo uploaded
+  imageUrl    String        @default("") // data-URL photo
   createdAt   DateTime      @default(now())
+}
+
+model VerificationRequest {
+  id             String        @id @default(cuid())
+  masterId       String        @unique
+  master         MasterProfile @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  idNumber       String
+  experienceInfo String        @default("")
+  documents      String        @default("[]") // JSON array of data-URLs (ID, certificates)
+  status         String        @default("PENDING") // PENDING | APPROVED | REJECTED
+  note           String        @default("") // admin's note on rejection
+  createdAt      DateTime      @default(now())
+}
+
+model Complaint {
+  id         String   @id @default(cuid())
+  bookingId  String
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  subject    String
+  body       String   @default("")
+  status     String   @default("OPEN") // OPEN | RESOLVED
+  resolution String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@index([status])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  masterId  String
+  master    MasterProfile @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  amount    Int // GEL
+  plan      String // BASIC | STANDARD | PRO
+  months    Int           @default(1)
+  createdAt DateTime      @default(now())
 }
 
 model Booking {
@@ -82,9 +124,10 @@ model Booking {
   price         Int?
   createdAt     DateTime       @default(now())
 
-  offers   Offer[]
-  review   Review?
-  messages Message[]
+  offers     Offer[]
+  review     Review?
+  messages   Message[]
+  complaints Complaint[]
 
   @@index([customerId])
   @@index([masterId])

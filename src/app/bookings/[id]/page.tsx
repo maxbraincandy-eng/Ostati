@@ -6,6 +6,7 @@ import BookingActions from "./BookingActions";
 import OfferPanel from "./OfferPanel";
 import Chat from "./Chat";
 import ReviewForm from "./ReviewForm";
+import ComplaintForm from "./ComplaintForm";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { categoryIcon, categoryName } from "@/lib/constants";
@@ -161,6 +162,7 @@ export default async function BookingPage({ params }: { params: { id: string } }
             status={booking.status}
             role={isAssignedMaster ? "master" : isCustomer ? "customer" : "viewer"}
           />
+          {(isCustomer || isAssignedMaster) && <ComplaintForm bookingId={booking.id} />}
         </div>
       </div>
     </div>

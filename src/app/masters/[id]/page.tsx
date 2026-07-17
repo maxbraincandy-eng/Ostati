@@ -114,15 +114,20 @@ export default async function MasterProfilePage({ params }: { params: { id: stri
               <div className="grid gap-4 sm:grid-cols-2">
                 {master.portfolio.map((p) => (
                   <figure key={p.id} className="overflow-hidden rounded-xl border border-graphite-border">
-                    <div
-                      className="grid h-36 place-items-center text-4xl"
-                      style={{
-                        background: `linear-gradient(135deg, hsl(${p.imageHue} 35% 22%), hsl(${(p.imageHue + 30) % 360} 40% 14%))`,
-                      }}
-                      aria-hidden
-                    >
-                      {categoryIcon(master.category)}
-                    </div>
+                    {p.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.imageUrl} alt={p.title} className="h-36 w-full object-cover" />
+                    ) : (
+                      <div
+                        className="grid h-36 place-items-center text-4xl"
+                        style={{
+                          background: `linear-gradient(135deg, hsl(${p.imageHue} 35% 22%), hsl(${(p.imageHue + 30) % 360} 40% 14%))`,
+                        }}
+                        aria-hidden
+                      >
+                        {categoryIcon(master.category)}
+                      </div>
+                    )}
                     <figcaption className="p-4">
                       <p className="font-medium">{p.title}</p>
                       {p.description && <p className="mt-1 text-sm text-muted">{p.description}</p>}

@@ -3,6 +3,8 @@ import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import StatusBadge from "@/components/StatusBadge";
 import AdminMasterActions from "./AdminMasterActions";
+import AdminVerifications from "./AdminVerifications";
+import AdminComplaints from "./AdminComplaints";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { categoryName, PLATFORM_COMMISSION } from "@/lib/constants";
@@ -14,29 +16,43 @@ export default async function AdminPage() {
   const session = await getSession();
   if (session?.user?.role !== "ADMIN") redirect("/");
 
-  const [userCount, masters, bookings, completedAgg] = await Promise.all([
-    prisma.user.count(),
-    prisma.masterProfile.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { user: { select: { name: true, email: true, phone: true } } },
-    }),
-    prisma.booking.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 30,
-      include: {
-        customer: { select: { name: true } },
-        master: { include: { user: { select: { name: true } } } },
-      },
-    }),
-    prisma.booking.aggregate({ where: { status: "COMPLETED" }, _sum: { price: true }, _count: true }),
-  ]);
+  const [userCount, masters, bookings, completedAgg, verifications, complaints, premiumAgg] =
+    await Promise.all([
+      prisma.user.count(),
+      prisma.masterProfile.findMany({
+        orderBy: { createdAt: "desc" },
+        include: { user: { select: { name: true, email: true, phone: true } } },
+      }),
+      prisma.booking.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 30,
+        include: {
+          customer: { select: { name: true } },
+          master: { include: { user: { select: { name: true } } } },
+        },
+      }),
+      prisma.booking.aggregate({ where: { status: "COMPLETED" }, _sum: { price: true }, _count: true }),
+      prisma.verificationRequest.findMany({
+        where: { status: "PENDING" },
+        orderBy: { createdAt: "asc" },
+        include: { master: { include: { user: { select: { name: true } } } } },
+      }),
+      prisma.complaint.findMany({
+        orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+        take: 30,
+        include: { author: { select: { name: true } } },
+      }),
+      prisma.payment.aggregate({ _sum: { amount: true } }),
+    ]);
 
   const gross = completedAgg._sum.price ?? 0;
+  const commissionRevenue = Math.round(gross * PLATFORM_COMMISSION);
+  const premiumRevenue = premiumAgg._sum.amount ?? 0;
   const stats = [
     { label: "მომხმარებელი", value: userCount },
     { label: "ოსტატი", value: masters.length },
     { label: "დასრულებული სამუშაო", value: completedAgg._count },
-    { label: "პლატფორმის შემოსავალი", value: `${Math.round(gross * PLATFORM_COMMISSION)}₾` },
+    { label: "შემოსავალი (საკომისიო + Premium)", value: `${commissionRevenue + premiumRevenue}₾` },
   ];
 
   return (
@@ -54,8 +70,61 @@ export default async function AdminPage() {
         ))}
       </div>
 
+      <p className="mt-2 text-xs text-muted">
+        საკომისიო ({Math.round(PLATFORM_COMMISSION * 100)}%): {commissionRevenue}₾ · Premium გამოწერები: {premiumRevenue}₾
+      </p>
+
+      {/* Verification queue */}
+      <h2 className="mb-4 mt-12 text-lg font-semibold">
+        ვერიფიკაციის მოთხოვნები{" "}
+        {verifications.length > 0 && (
+          <span className="ml-1 rounded-full bg-gold/15 px-2 py-0.5 text-xs text-gold-light">
+            {verifications.length}
+          </span>
+        )}
+      </h2>
+      <AdminVerifications
+        requests={verifications.map((v) => ({
+          id: v.id,
+          masterName: v.master.user.name,
+          masterProfileId: v.masterId,
+          idNumber: v.idNumber,
+          experienceInfo: v.experienceInfo,
+          documents: (() => {
+            try {
+              return JSON.parse(v.documents) as string[];
+            } catch {
+              return [];
+            }
+          })(),
+          createdAt: v.createdAt.toLocaleDateString("ka-GE"),
+        }))}
+      />
+
+      {/* Complaints */}
+      <h2 className="mb-4 mt-12 text-lg font-semibold">
+        საჩივრები{" "}
+        {complaints.filter((c) => c.status === "OPEN").length > 0 && (
+          <span className="ml-1 rounded-full bg-red-500/15 px-2 py-0.5 text-xs text-red-300">
+            {complaints.filter((c) => c.status === "OPEN").length} ღია
+          </span>
+        )}
+      </h2>
+      <AdminComplaints
+        complaints={complaints.map((c) => ({
+          id: c.id,
+          subject: c.subject,
+          body: c.body,
+          authorName: c.author.name,
+          bookingId: c.bookingId,
+          status: c.status,
+          resolution: c.resolution,
+          createdAt: c.createdAt.toLocaleDateString("ka-GE"),
+        }))}
+      />
+
       {/* Masters management */}
-      <h2 className="mb-4 mt-12 text-lg font-semibold">ოსტატების მართვა და ვერიფიკაცია</h2>
+      <h2 className="mb-4 mt-12 text-lg font-semibold">ოსტატების მართვა</h2>
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
           <thead>
