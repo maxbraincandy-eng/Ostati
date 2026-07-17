@@ -99,13 +99,18 @@ model Complaint {
 }
 
 model Payment {
-  id        String        @id @default(cuid())
-  masterId  String
-  master    MasterProfile @relation(fields: [masterId], references: [id], onDelete: Cascade)
-  amount    Int // GEL
-  plan      String // BASIC | STANDARD | PRO
-  months    Int           @default(1)
-  createdAt DateTime      @default(now())
+  id              String        @id @default(cuid())
+  masterId        String
+  master          MasterProfile @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  amount          Int // GEL
+  plan            String // BASIC | STANDARD | PRO
+  months          Int           @default(1)
+  status          String        @default("PAID") // PENDING | PAID | FAILED
+  provider        String        @default("DEMO") // DEMO | BOG
+  providerOrderId String        @default("")
+  createdAt       DateTime      @default(now())
+
+  @@index([providerOrderId])
 }
 
 model Booking {

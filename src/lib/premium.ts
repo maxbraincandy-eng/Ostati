@@ -1,3 +1,5 @@
+export type PremiumPlanId = "BASIC" | "STANDARD" | "PRO";
+
 export const PREMIUM_PLANS = [
   {
     id: "BASIC" as const,

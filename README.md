@@ -70,9 +70,19 @@ src/app/api/       # REST API — register, bookings, offers, reviews,
                    #            messages, favorites, ai, admin
 ```
 
-## 🗺 Roadmap (Phase 2+)
+## 💳 გადახდები (Bank of Georgia)
 
-- ონლაინ გადახდები (საკომისიოს ავტომატური ჩამოჭრა) და Premium გამოწერა
+Premium გამოწერის გადახდა ინტეგრირებულია **საქართველოს ბანკის e-commerce API**-სთან:
+
+1. გახსენი BOG ბიზნეს ანგარიში და მიიღე მერჩანტ მონაცემები ([api.bog.ge](https://api.bog.ge))
+2. დაამატე env ცვლადები: `BOG_CLIENT_ID`, `BOG_CLIENT_SECRET`
+3. ამის შემდეგ „არჩევა" ღილაკი მომხმარებელს ბანკის დაცულ გადახდის გვერდზე გადაიყვანს (Visa/Mastercard/Apple Pay/Google Pay); გადახდის დადასტურება ხდება webhook-ით (`/api/payments/callback`), რომელიც სტატუსს უშუალოდ ბანკის API-დან გადაამოწმებს
+
+მონაცემების გარეშე checkout **დემო რეჟიმში** მუშაობს — გადახდა სიმულირდება.
+
+## 🗺 Roadmap (Phase 3+)
+
+- შეკვეთის საკომისიოს ონლაინ გადახდა (იგივე BOG ინტეგრაციით)
 - ტელეფონით ავტორიზაცია (SMS OTP)
 - WebSocket ჩატი და Push notifications
 - ფოტოების ატვირთვა object storage-ში (ამჟამად data-URL)

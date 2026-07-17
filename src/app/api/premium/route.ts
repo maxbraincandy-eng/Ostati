@@ -2,15 +2,17 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { notify } from "@/lib/notify";
 import { PREMIUM_PLANS } from "@/lib/premium";
+import { bogCreateOrder, bogEnabled, fulfillPayment } from "@/lib/billing";
 
 const schema = z.object({ plan: z.enum(["BASIC", "STANDARD", "PRO"]) });
 
 /**
- * Demo checkout: records the payment and activates premium immediately.
- * Swap the body of this handler for a real provider (BOG/TBC/Stripe)
- * checkout-session redirect when payment keys are available.
+ * Premium checkout.
+ * - With BOG merchant credentials: creates a pending payment + bank order
+ *   and returns the hosted payment page URL; fulfillment happens in the
+ *   /api/payments/callback webhook.
+ * - Without credentials (demo): fulfills immediately.
  */
 export async function POST(req: Request) {
   const user = await requireUser();
@@ -21,33 +23,35 @@ export async function POST(req: Request) {
 
   const plan = PREMIUM_PLANS.find((p) => p.id === parsed.data.plan)!;
 
-  const current = await prisma.masterProfile.findUnique({
-    where: { id: user.masterId },
-    select: { premiumUntil: true },
+  const payment = await prisma.payment.create({
+    data: {
+      masterId: user.masterId,
+      amount: plan.price,
+      plan: plan.id,
+      months: plan.months,
+      status: "PENDING",
+      provider: bogEnabled() ? "BOG" : "DEMO",
+    },
   });
-  // Extend from the current expiry when still active, else from now.
-  const base =
-    current?.premiumUntil && current.premiumUntil > new Date()
-      ? current.premiumUntil
-      : new Date();
-  const until = new Date(base);
-  until.setMonth(until.getMonth() + plan.months);
 
-  await prisma.$transaction([
-    prisma.payment.create({
-      data: { masterId: user.masterId, amount: plan.price, plan: plan.id, months: plan.months },
-    }),
-    prisma.masterProfile.update({
-      where: { id: user.masterId },
-      data: { premium: true, premiumUntil: until },
-    }),
-  ]);
+  if (!bogEnabled()) {
+    await fulfillPayment(payment.id);
+    return NextResponse.json({ ok: true, demo: true });
+  }
 
-  await notify(
-    user.id,
-    "Premium აქტიურია ⭐",
-    `პაკეტი: ${plan.name} · მოქმედებს ${until.toLocaleDateString("ka-GE")}-მდე`,
-    "/dashboard"
-  );
-  return NextResponse.json({ ok: true, until });
+  try {
+    const redirect = await bogCreateOrder({
+      paymentId: payment.id,
+      planId: plan.id,
+      amount: plan.price,
+    });
+    return NextResponse.json({ redirect });
+  } catch (err) {
+    console.error("BOG checkout error:", err);
+    await prisma.payment.update({ where: { id: payment.id }, data: { status: "FAILED" } });
+    return NextResponse.json(
+      { error: "გადახდის ინიციალიზაცია ვერ მოხერხდა — სცადე მოგვიანებით" },
+      { status: 502 }
+    );
+  }
 }

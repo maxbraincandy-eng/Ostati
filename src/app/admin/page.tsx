@@ -42,7 +42,7 @@ export default async function AdminPage() {
         take: 30,
         include: { author: { select: { name: true } } },
       }),
-      prisma.payment.aggregate({ _sum: { amount: true } }),
+      prisma.payment.aggregate({ where: { status: "PAID" }, _sum: { amount: true } }),
     ]);
 
   const gross = completedAgg._sum.price ?? 0;

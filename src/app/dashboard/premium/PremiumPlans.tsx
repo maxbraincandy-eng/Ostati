@@ -17,12 +17,18 @@ export default function PremiumPlans() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ plan }),
     });
-    setBusy(null);
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
+      setBusy(null);
       setError(data.error ?? "გადახდა ვერ შესრულდა");
       return;
     }
+    if (data.redirect) {
+      // Real payment — hand off to the bank's hosted checkout page.
+      window.location.href = data.redirect;
+      return;
+    }
+    setBusy(null);
     router.refresh();
   }
 
